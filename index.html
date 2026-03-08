@@ -747,12 +747,14 @@ function agregar(){
 const nombre=document.getElementById("nombre").value;
 const monto=parseFloat(document.getElementById("monto").value);
 
-if(!nombre||!monto)return;
+if(!nombre || !monto) return;
+
+guardarEnFirebase(nombre,monto);
 
 data[mesActual].push({
  id:Date.now(),
- nombre,
- monto,
+ nombre:nombre,
+ monto:monto,
  pagado:false,
  fechaPago:""
 });
@@ -761,8 +763,26 @@ document.getElementById("nombre").value="";
 document.getElementById("monto").value="";
 
 render();
+
 }
 
+async function guardarEnFirebase(nombre,monto){
+
+try{
+
+await addDoc(collection(db,"gastos"),{
+ nombre:nombre,
+ monto:monto,
+ fecha:new Date()
+});
+
+console.log("Guardado en Firebase");
+
+}catch(e){
+
+console.error("Error guardando:",e);
+
+}
 function togglePago(id){
 
  data[mesActual]=data[mesActual].map(g=>{
@@ -929,7 +949,7 @@ window.onload = cargarDatos;
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
-  import { getFirestore } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+  import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
   // TODO: Add SDKs for Firebase products that you want to use
   // https://firebase.google.com/docs/web/setup#available-libraries
 
