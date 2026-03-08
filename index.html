@@ -923,8 +923,7 @@ document.getElementById("pendiente").innerText="Total Pendiente: S/ "+totalPendi
 
 render();
 
-</script>
- // GUARDAR DATOS
+// GUARDAR DATOS
 function guardarDatos() {
     const datos = document.getElementById("tabla").innerHTML;
     localStorage.setItem("presupuesto_hogar", datos);
@@ -940,6 +939,9 @@ function cargarDatos() {
 
 // GUARDAR AUTOMÁTICO
 document.addEventListener("input", guardarDatos);
+
+// CARGAR AL ABRIR
+window.onload = cargarDatos;
 
 // CARGAR AL ABRIR
 window.onload = cargarDatos;
