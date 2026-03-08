@@ -904,5 +904,26 @@ document.getElementById("pendiente").innerText="Total Pendiente: S/ "+totalPendi
 render();
 
 </script>
+ // GUARDAR DATOS
+function guardarDatos() {
+    const datos = document.getElementById("tabla").innerHTML;
+    localStorage.setItem("presupuesto_hogar", datos);
+}
+
+// CARGAR DATOS
+function cargarDatos() {
+    const datosGuardados = localStorage.getItem("presupuesto_hogar");
+    if (datosGuardados) {
+        document.getElementById("tabla").innerHTML = datosGuardados;
+    }
+}
+
+// GUARDAR AUTOMÁTICO
+document.addEventListener("input", guardarDatos);
+
+// CARGAR AL ABRIR
+window.onload = cargarDatos;
+
+</script>
 </body>
 </html>
