@@ -1,273 +1,258 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-
 <meta charset="UTF-8">
 <title>Panel Financiero del Hogar</title>
 
 <style>
-
-body{
-font-family:Arial;
-background:#f0f0f0;
-padding:20px;
-}
-
-h1{
-text-align:center;
-}
-
-#login{
-text-align:center;
-margin-top:100px;
-}
-
-#panel{
-display:none;
-}
-
-input{
-padding:8px;
-margin:5px;
-}
-
-button{
-padding:8px 12px;
-cursor:pointer;
-}
-
-table{
-width:100%;
-margin-top:20px;
-border-collapse:collapse;
-background:white;
-}
-
-th,td{
-padding:10px;
-border:1px solid #ddd;
-text-align:center;
-}
-
-.pagado{
-background:#c8f7c5;
-}
-
-.total{
-margin-top:20px;
-font-size:20px;
-font-weight:bold;
-text-align:right;
-}
-
+body{font-family:Arial;padding:20px;max-width:1000px;margin:auto}
+.meses{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.meses button{padding:6px 10px;border:none;border-radius:6px;cursor:pointer;background:#e5e7eb}
+.activo{background:#2563eb !important;color:white}
+.input-area{display:flex;gap:10px;margin-bottom:20px}
+.control-area{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.lista{display:grid;gap:10px}
+.gasto{background:white;display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:10px;align-items:center;border:1px solid #ddd;padding:8px;border-radius:8px}
+.pagado{background:#fde047}
+.total{display:grid;grid-template-columns:1fr 1fr;margin-top:30px;font-size:20px;font-weight:bold}
+.bloqueado{display:flex;align-items:center;justify-content:center;height:70vh;font-size:28px}
 </style>
 
 </head>
 
 <body>
 
-<div id="login">
+<h1 style="text-align:center">Panel Financiero del Hogar</h1>
 
-<h1>🔐 Panel Financiero del Hogar</h1>
+<button onclick="guardarManual()">💾 Guardar Cambios</button>
 
-<input type="password" id="pin" placeholder="Ingrese PIN">
+<div class="meses" id="meses"></div>
 
-<button onclick="login()">Entrar</button>
-
-<p id="error" style="color:red;"></p>
-
+<div class="input-area">
+<input id="nombre" placeholder="Nuevo gasto">
+<input id="monto" type="number" step="0.01" placeholder="Monto">
+<button onclick="agregar()">Agregar</button>
 </div>
 
-<div id="panel">
+<div class="control-area">
+<button onclick="pagarTodo()">Pagar Todo</button>
+<button onclick="reiniciarMes()">Reiniciar Mes</button>
+</div>
 
-<h1>💰 Control de Gastos</h1>
-
-<input id="nombre" placeholder="Nuevo gasto">
-<input id="monto" type="number" placeholder="Monto">
-
-<button onclick="agregar()">Agregar</button>
-
-<table>
-
-<thead>
-<tr>
-<th>Concepto</th>
-<th>Monto</th>
-<th>Estado</th>
-<th>Acciones</th>
-</tr>
-</thead>
-
-<tbody id="tabla"></tbody>
-
-</table>
+<div class="lista" id="lista"></div>
 
 <div class="total">
-
-Total pendiente: $<span id="total">0</span>
-
-</div>
-
+<div id="pagado"></div>
+<div id="pendiente"></div>
 </div>
 
 <script>
 
-const PIN="1389";
+const PIN_CORRECTO="1389";
+let accesoPermitido=true;
 
-let gastos=[];
+function verificarPIN(){
+let intento=prompt("Ingrese el PIN:");
 
-function login(){
+if(intento!==PIN_CORRECTO){
+alert("PIN incorrecto");
+return verificarPIN();
+}
 
-let p=document.getElementById("pin").value;
+return true;
+}
 
-if(p===PIN){
+verificarPIN();
 
-document.getElementById("login").style.display="none";
-document.getElementById("panel").style.display="block";
+const meses=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-cargarFirebase();
+const datosBase=[
+{id:1,nombre:"Alquiler",monto:1650,pagado:false,fechaPago:""},
+{id:2,nombre:"Terreno 3 Viñedos de Ocucaje",monto:589,pagado:false,fechaPago:""},
+{id:3,nombre:"UCV Lucy pension",monto:400,pagado:false,fechaPago:""},
+{id:4,nombre:"Terreno 4 Puertas de Carhuaz",monto:380,pagado:false,fechaPago:""},
+{id:5,nombre:"Terreno 5 Sol de Luna Puerto Malabrigo",monto:362,pagado:false,fechaPago:""},
+{id:6,nombre:"Seguros colegios hijos",monto:350,pagado:false,fechaPago:""},
+{id:7,nombre:"Terreno 2 Reque",monto:325,pagado:false,fechaPago:""},
+{id:8,nombre:"Lucy",monto:200,pagado:false,fechaPago:""},
+{id:9,nombre:"Viaje de julio",monto:200,pagado:false,fechaPago:""},
+{id:10,nombre:"Terreno 1 San Vicente de Cañete",monto:196,pagado:false,fechaPago:""}
+];
 
-}else{
+function crearEstructura(){
 
-document.getElementById("error").innerText="PIN incorrecto";
+const obj={};
+
+meses.forEach(m=>{
+obj[m]=datosBase.map(g=>({...g}));
+});
+
+return obj;
 
 }
+
+let data=JSON.parse(localStorage.getItem("finanzasCasa")) || crearEstructura();
+
+let mesActual="Enero";
+
+function guardarManual(){
+
+localStorage.setItem("finanzasCasa",JSON.stringify(data));
+
+alert("Guardado");
+
+}
+
+function renderMeses(){
+
+const cont=document.getElementById("meses");
+
+cont.innerHTML="";
+
+meses.forEach(m=>{
+
+const btn=document.createElement("button");
+
+btn.textContent=m;
+
+if(m===mesActual)btn.classList.add("activo");
+
+btn.onclick=()=>{
+mesActual=m;
+render();
+};
+
+cont.appendChild(btn);
+
+});
 
 }
 
 function agregar(){
 
-let nombre=document.getElementById("nombre").value;
-let monto=parseFloat(document.getElementById("monto").value);
+const nombre=document.getElementById("nombre").value;
 
-if(!nombre || !monto) return;
+const monto=parseFloat(document.getElementById("monto").value);
 
-guardarEnFirebase(nombre,monto);
+data[mesActual].push({
 
-document.getElementById("nombre").value="";
-document.getElementById("monto").value="";
-
-}
-
-function render(){
-
-let tabla=document.getElementById("tabla");
-
-tabla.innerHTML="";
-
-let total=0;
-
-gastos.forEach((g,i)=>{
-
-if(!g.pagado) total+=g.monto;
-
-tabla.innerHTML+=`
-
-<tr class="${g.pagado?'pagado':''}">
-
-<td>${g.nombre}</td>
-
-<td>$${g.monto}</td>
-
-<td>${g.pagado?'Pagado':'Pendiente'}</td>
-
-<td>
-
-<button onclick="pagar('${g.id}',${g.pagado})">✔</button>
-
-<button onclick="eliminar('${g.id}')">❌</button>
-
-</td>
-
-</tr>
-
-`;
-
-});
-
-document.getElementById("total").innerText=total;
-
-}
-
-</script>
-
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore,collection,addDoc,getDocs,deleteDoc,doc,updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
-
-const firebaseConfig = {
-
-apiKey:"TU_API_KEY",
-authDomain:"TU_DOMINIO.firebaseapp.com",
-projectId:"TU_PROYECTO",
-storageBucket:"TU_BUCKET",
-messagingSenderId:"XXXX",
-appId:"XXXX"
-
-};
-
-const app=initializeApp(firebaseConfig);
-
-const db=getFirestore(app);
-
-window.guardarEnFirebase=async function(nombre,monto){
-
-await addDoc(collection(db,"gastos"),{
-
+id:Date.now(),
 nombre:nombre,
 monto:monto,
 pagado:false,
-fecha:new Date()
+fechaPago:""
 
 });
 
-cargarFirebase();
-
-}
-
-window.cargarFirebase=async function(){
-
-gastos=[];
-
-const querySnapshot=await getDocs(collection(db,"gastos"));
-
-querySnapshot.forEach((docu)=>{
-
-gastos.push({
-id:docu.id,
-...docu.data()
-});
-
-});
+guardarManual();
 
 render();
 
 }
 
-window.eliminar=async function(id){
+function togglePago(id){
 
-await deleteDoc(doc(db,"gastos",id));
+data[mesActual]=data[mesActual].map(g=>{
 
-cargarFirebase();
+if(g.id===id){
+
+g.pagado=!g.pagado;
 
 }
 
-window.pagar=async function(id,estado){
-
-await updateDoc(doc(db,"gastos",id),{
-
-pagado:!estado
+return g;
 
 });
 
-cargarFirebase();
+guardarManual();
+
+render();
 
 }
+
+function render(){
+
+renderMeses();
+
+const lista=document.getElementById("lista");
+
+lista.innerHTML="";
+
+data[mesActual].forEach(g=>{
+
+const div=document.createElement("div");
+
+div.className="gasto"+(g.pagado?" pagado":"");
+
+div.innerHTML=`
+
+<input value="${g.nombre}">
+
+<input type="number" value="${g.monto}">
+
+<button onclick="togglePago(${g.id})">
+
+${g.pagado?"Pagado":"Pendiente"}
+
+</button>
+
+`;
+
+lista.appendChild(div);
+
+});
+
+const totalPagado=data[mesActual]
+.filter(g=>g.pagado)
+.reduce((a,b)=>a+b.monto,0);
+
+const totalPendiente=data[mesActual]
+.filter(g=>!g.pagado)
+.reduce((a,b)=>a+b.monto,0);
+
+document.getElementById("pagado").innerText="Total Pagado S/ "+totalPagado;
+
+document.getElementById("pendiente").innerText="Total Pendiente S/ "+totalPendiente;
+
+}
+
+render();
+
+</script>
+
+<!-- FIREBASE -->
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+
+apiKey: "AIzaSyBRn-3Hn8u5nUP8tVS75l-q_uPiwaHgO_w",
+
+authDomain: "presupuesto-hogar-745dc.firebaseapp.com",
+
+projectId: "presupuesto-hogar-745dc",
+
+storageBucket: "presupuesto-hogar-745dc.firebasestorage.app",
+
+messagingSenderId: "812918967836",
+
+appId: "1:812918967836:web:668c0673904a36288e19d9",
+
+measurementId: "G-XD10FZRG1F"
+
+};
+
+const app = initializeApp(firebaseConfig);
+
+const db = getFirestore(app);
+
+console.log("Firebase conectado");
 
 </script>
 
 </body>
-
 </html>
