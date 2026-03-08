@@ -1,0 +1,908 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Panel Financiero del Hogar</title>
+<style>
+body{font-family:Arial;padding:20px;max-width:1000px;margin:auto}
+.meses{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.meses button{padding:6px 10px;border:none;border-radius:6px;cursor:pointer;background:#e5e7eb}
+.activo{background:#2563eb !important;color:white}
+.input-area{display:flex;gap:10px;margin-bottom:20px}
+.control-area{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.lista{display:grid;gap:10px}
+.gasto{background:white;display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:10px;align-items:center;border:1px solid #ddd;padding:8px;border-radius:8px}
+.pagado{background:#fde047}
+.total{display:grid;grid-template-columns:1fr 1fr;margin-top:30px;font-size:20px;font-weight:bold}
+.guardar{margin-bottom:20px}
+.bloqueado{display:flex;align-items:center;justify-content:center;height:70vh;font-size:28px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+</head>
+<body>
+<h1 style="text-align:center">Panel Financiero del Hogar</h1>
+
+<div class="guardar">
+<button onclick="guardarManual()">💾 Guardar Cambios</button>
+<button onclick="exportarArchivo()">📤 Guardar y Enviar por WhatsApp</button>
+<button onclick="exportarExcel()">📊 Descargar Excel</button>
+<input type="file" id="importarArchivoInput" style="display:none" onchange="importarArchivo(event)">
+<button onclick="document.getElementById('importarArchivoInput').click()">📂 Abrir archivo recibido</button>
+</div>
+
+<div class="meses" id="meses"></div>
+
+<div class="input-area">
+<input id="nombre" placeholder="Nuevo gasto">
+<input id="monto" type="number" placeholder="Monto">
+<button onclick="agregar()">Agregar</button>
+</div>
+
+<div class="control-area">
+<button onclick="pagarTodo()">Pagar Todo</button>
+<button onclick="reiniciarMes()">Reiniciar Mes</button>
+<button onclick="ordenarMayor()">⬇ Mayor a menor</button>
+<button onclick="ordenarMenor()">⬆ Menor a mayor</button>
+<button onclick="verTodos()">Todos</button>
+<button onclick="verPendientes()">Pendientes</button>
+<button onclick="verPagados()">Pagados</button>
+</div>
+
+<div class="lista" id="lista"></div>
+
+<div class="total">
+<div id="pagado"></div>
+<div id="pendiente"></div>
+</div>
+
+<script>
+
+const PIN_CORRECTO="1389";
+let accesoPermitido=true;
+
+function verificarPIN(){
+
+let intento=prompt("Ingrese el PIN para acceder al panel financiero:");
+
+if(intento===null){
+ accesoPermitido=false;
+ document.body.innerHTML="<div class='bloqueado'>🔒 Acceso cancelado</div>";
+ return false;
+}
+
+if(intento!==PIN_CORRECTO){
+ alert("PIN incorrecto");
+ return verificarPIN();
+}
+
+return true;
+}
+
+verificarPIN();
+
+const meses=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+const datosBaseMensual=[
+  {
+    "nombre": "Alquiler",
+    "montos": [
+      1650,
+      1650,
+      1650,
+      1650,
+      1650,
+      1650,
+      1650,
+      1650,
+      1650,
+      1650,
+      1650,
+      1650
+    ]
+  },
+  {
+    "nombre": "colegio 1",
+    "montos": [
+      875,
+      875,
+      875,
+      875,
+      875,
+      875,
+      875,
+      875,
+      875,
+      875,
+      875,
+      875
+    ]
+  },
+  {
+    "nombre": "colegio 2",
+    "montos": [
+      832,
+      832,
+      832,
+      832,
+      832,
+      832,
+      832,
+      832,
+      832,
+      832,
+      832,
+      832
+    ]
+  },
+  {
+    "nombre": "Terreno 3  Viñedos de Ocucaje",
+    "montos": [
+      589,
+      589,
+      589,
+      589,
+      589,
+      589,
+      589,
+      589,
+      589,
+      589,
+      589,
+      589
+    ]
+  },
+  {
+    "nombre": "UCV_Lucy pension",
+    "montos": [
+      400,
+      400,
+      400,
+      400,
+      400,
+      400,
+      400,
+      400,
+      400,
+      400,
+      400,
+      400
+    ]
+  },
+  {
+    "nombre": "Terreno 4  Puertas de Carhuaz",
+    "montos": [
+      380,
+      380,
+      380,
+      380,
+      380,
+      380,
+      380,
+      380,
+      380,
+      380,
+      380,
+      380
+    ]
+  },
+  {
+    "nombre": "Terreno 5 Sol de Luna Puerto Malabrigo",
+    "montos": [
+      362,
+      362,
+      362,
+      362,
+      362,
+      362,
+      362,
+      362,
+      362,
+      362,
+      362,
+      362
+    ]
+  },
+  {
+    "nombre": "Seguros colegios hijos",
+    "montos": [
+      350,
+      350,
+      350,
+      350,
+      350,
+      350,
+      350,
+      350,
+      350,
+      350,
+      350,
+      350
+    ]
+  },
+  {
+    "nombre": "Terreno 2 Reque",
+    "montos": [
+      325,
+      325,
+      325,
+      325,
+      325,
+      325,
+      325,
+      325,
+      325,
+      325,
+      325,
+      325
+    ]
+  },
+  {
+    "nombre": "Cochera",
+    "montos": [
+      0,
+      280,
+      280,
+      280,
+      280,
+      280,
+      280,
+      280,
+      280,
+      280,
+      280,
+      280
+    ]
+  },
+  {
+    "nombre": "Lucy",
+    "montos": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200
+    ]
+  },
+  {
+    "nombre": "viaje de julio",
+    "montos": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      0,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200
+    ]
+  },
+  {
+    "nombre": "Terreno 1 en San Vicente de Cañete",
+    "montos": [
+      196,
+      196,
+      196,
+      196,
+      196,
+      196,
+      196,
+      196,
+      196,
+      196,
+      196,
+      196
+    ]
+  },
+  {
+    "nombre": "Restaurantes",
+    "montos": [
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150
+    ]
+  },
+  {
+    "nombre": "Seguro Lucy",
+    "montos": [
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150
+    ]
+  },
+  {
+    "nombre": "Mama de Eder",
+    "montos": [
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150,
+      150
+    ]
+  },
+  {
+    "nombre": "Pasajes al colegio",
+    "montos": [
+      100,
+      110,
+      110,
+      110,
+      110,
+      110,
+      110,
+      110,
+      110,
+      110,
+      110,
+      110
+    ]
+  },
+  {
+    "nombre": "Electricidad",
+    "montos": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ]
+  },
+  {
+    "nombre": "Alimentacion diaria",
+    "montos": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ]
+  },
+  {
+    "nombre": "Vestuario",
+    "montos": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ]
+  },
+  {
+    "nombre": "Mama de Lucy",
+    "montos": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ]
+  },
+  {
+    "nombre": "Win - Internet",
+    "montos": [
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
+    ]
+  },
+  {
+    "nombre": "Agua",
+    "montos": [
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60
+    ]
+  },
+  {
+    "nombre": "Gas",
+    "montos": [
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60,
+      60
+    ]
+  },
+  {
+    "nombre": "Fiestas celebraciones",
+    "montos": [
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50,
+      50
+    ]
+  },
+  {
+    "nombre": "Celular Eder",
+    "montos": [
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40
+    ]
+  },
+  {
+    "nombre": "Celular Lucy",
+    "montos": [
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30
+    ]
+  },
+  {
+    "nombre": "Matricula ucv",
+    "montos": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      250,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  {
+    "nombre": "Arbirios",
+    "montos": [
+      85,
+      85,
+      85,
+      85,
+      85,
+      85,
+      85,
+      85,
+      85,
+      85,
+      85,
+      85
+    ]
+  },
+  {
+    "nombre": "matricula computo",
+    "montos": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200
+    ]
+  },
+  {
+    "nombre": "impuesto Vehicular",
+    "montos": [
+      174.8,
+      174.8,
+      174.8,
+      174.8,
+      174.8,
+      174.8,
+      174.8,
+      174.8,
+      174.8,
+      174.8,
+      174.8,
+      174.8
+    ]
+  }
+];
+
+function crearEstructura(){
+const obj={};
+
+meses.forEach((m,mi)=>{
+obj[m]=datosBaseMensual.map((g,i)=>({
+ id:i+1,
+ nombre:g.nombre,
+ monto:g.montos[mi],
+ pagado:false,
+ fechaPago:""
+}));
+});
+
+return obj;
+}
+
+let data=JSON.parse(localStorage.getItem("finanzasCasa"))||crearEstructura();
+let mesActual="Enero";
+let orden="ninguno";
+let filtro="todos";
+
+function guardarManual(){
+localStorage.setItem("finanzasCasa",JSON.stringify(data));
+alert("Cambios guardados correctamente");
+}
+
+/* EXPORTAR ARCHIVO PARA WHATSAPP */
+
+function exportarArchivo(){
+
+const contenido=JSON.stringify(data);
+
+const blob=new Blob([contenido],{type:"application/json"});
+
+const a=document.createElement("a");
+
+const fecha=new Date().toISOString().split("T")[0];
+
+a.href=URL.createObjectURL(blob);
+a.download="presupuesto_financiero_"+fecha+".json";
+
+a.click();
+
+}
+
+
+/* EXPORTAR A EXCEL */
+
+function exportarExcel(){
+
+const gastos=data[mesActual];
+
+const filas=gastos.map(g=>({
+Mes:mesActual,
+Nombre:g.nombre,
+Monto:g.monto,
+Estado:g.pagado?"Pagado":"Pendiente",
+FechaPago:g.fechaPago
+}));
+
+const hoja=XLSX.utils.json_to_sheet(filas);
+
+const libro=XLSX.utils.book_new();
+
+XLSX.utils.book_append_sheet(libro,hoja,"Presupuesto");
+
+const fecha=new Date().toISOString().split("T")[0];
+
+XLSX.writeFile(libro,"presupuesto_"+mesActual+"_"+fecha+".xlsx");
+
+}
+
+/* IMPORTAR ARCHIVO RECIBIDO */
+
+function importarArchivo(event){
+
+const archivo=event.target.files[0];
+if(!archivo) return;
+
+const lector=new FileReader();
+
+lector.onload=function(e){
+
+try{
+
+const contenido=JSON.parse(e.target.result);
+
+data=contenido;
+
+localStorage.setItem("finanzasCasa",JSON.stringify(data));
+
+render();
+
+alert("Archivo cargado correctamente");
+
+}catch(err){
+
+alert("El archivo no es válido");
+
+}
+
+};
+
+lector.readAsText(archivo);
+
+}
+
+function renderMeses(){
+const cont=document.getElementById("meses");
+cont.innerHTML="";
+
+meses.forEach(m=>{
+
+const btn=document.createElement("button");
+btn.textContent=m;
+
+if(m===mesActual)btn.classList.add("activo");
+
+btn.onclick=()=>{
+mesActual=m;
+render();
+};
+
+cont.appendChild(btn);
+
+});
+}
+
+function agregar(){
+
+const nombre=document.getElementById("nombre").value;
+const monto=parseFloat(document.getElementById("monto").value);
+
+if(!nombre||!monto)return;
+
+data[mesActual].push({
+ id:Date.now(),
+ nombre,
+ monto,
+ pagado:false,
+ fechaPago:""
+});
+
+document.getElementById("nombre").value="";
+document.getElementById("monto").value="";
+
+render();
+}
+
+function togglePago(id){
+
+ data[mesActual]=data[mesActual].map(g=>{
+
+ if(g.id===id){
+
+  g.pagado=!g.pagado;
+
+  if(g.pagado){
+   g.fechaPago=new Date().toISOString().split('T')[0];
+  }else{
+   g.fechaPago="";
+  }
+
+ }
+
+ return g;
+
+ });
+
+render();
+}
+
+function eliminar(id){
+
+data[mesActual]=data[mesActual].filter(g=>g.id!==id);
+render();
+}
+
+function editar(id,campo,valor){
+
+ data[mesActual]=data[mesActual].map(g=>{
+
+ if(g.id!==id) return g;
+
+ g[campo]=campo==="monto"?parseFloat(valor):valor;
+
+ return g;
+
+ });
+
+render();
+}
+
+function pagarTodo(){
+
+ data[mesActual]=data[mesActual].map(g=>{
+ g.pagado=true;
+ g.fechaPago=new Date().toISOString().split('T')[0];
+ return g;
+ });
+
+render();
+}
+
+function reiniciarMes(){
+
+ data[mesActual]=data[mesActual].map(g=>{
+ g.pagado=false;
+ g.fechaPago="";
+ return g;
+ });
+
+render();
+}
+
+function ordenarMayor(){orden="mayor";render();}
+function ordenarMenor(){orden="menor";render();}
+
+function verTodos(){filtro="todos";render();}
+function verPendientes(){filtro="pendientes";render();}
+function verPagados(){filtro="pagados";render();}
+
+function render(){
+
+if(!accesoPermitido) return;
+
+renderMeses();
+
+const lista=document.getElementById("lista");
+lista.innerHTML="";
+
+let gastos=[...data[mesActual]];
+
+if(filtro==="pendientes"){
+ gastos=gastos.filter(g=>!g.pagado);
+}
+
+if(filtro==="pagados"){
+ gastos=gastos.filter(g=>g.pagado);
+}
+
+if(orden==="mayor"){
+ gastos.sort((a,b)=>b.monto-a.monto);
+}
+
+if(orden==="menor"){
+ gastos.sort((a,b)=>a.monto-b.monto);
+}
+
+gastos.forEach(g=>{
+
+const div=document.createElement("div");
+div.className="gasto"+(g.pagado?" pagado":"");
+
+div.innerHTML=`
+
+<input value="${g.nombre}" onchange="editar(${g.id},'nombre',this.value)">
+
+<input type="number" value="${g.monto}" onchange="editar(${g.id},'monto',this.value)">
+
+<button onclick="togglePago(${g.id})">
+${g.pagado?"Pagado":"Pendiente"}
+</button>
+
+<input type="date" value="${g.fechaPago||""}" onchange="editar(${g.id},'fechaPago',this.value)">
+
+<button onclick="eliminar(${g.id})" style="background:#dc2626;color:white">Eliminar</button>
+
+`;
+
+lista.appendChild(div);
+
+});
+
+const totalPagado=data[mesActual]
+.filter(g=>g.pagado)
+.reduce((a,b)=>a+b.monto,0);
+
+const totalPendiente=data[mesActual]
+.filter(g=>!g.pagado)
+.reduce((a,b)=>a+b.monto,0);
+
+document.getElementById("pagado").innerText="Total Pagado: S/ "+totalPagado;
+document.getElementById("pendiente").innerText="Total Pendiente: S/ "+totalPendiente;
+
+}
+
+render();
+
+</script>
+</body>
+</html>
