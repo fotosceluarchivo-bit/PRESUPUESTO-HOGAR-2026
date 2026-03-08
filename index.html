@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
 
 <meta charset="UTF-8">
-<title>Presupuesto Hogar</title>
+<title>Panel Financiero del Hogar</title>
 
 <style>
 
 body{
 font-family:Arial;
-background:#f2f2f2;
-margin:0;
+background:#f0f0f0;
 padding:20px;
 }
 
@@ -23,7 +23,7 @@ text-align:center;
 margin-top:100px;
 }
 
-#app{
+#panel{
 display:none;
 }
 
@@ -39,8 +39,8 @@ cursor:pointer;
 
 table{
 width:100%;
-border-collapse:collapse;
 margin-top:20px;
+border-collapse:collapse;
 background:white;
 }
 
@@ -55,9 +55,9 @@ background:#c8f7c5;
 }
 
 .total{
+margin-top:20px;
 font-size:20px;
 font-weight:bold;
-margin-top:20px;
 text-align:right;
 }
 
@@ -69,21 +69,21 @@ text-align:right;
 
 <div id="login">
 
-<h1>🔐 Presupuesto Hogar</h1>
+<h1>🔐 Panel Financiero del Hogar</h1>
 
 <input type="password" id="pin" placeholder="Ingrese PIN">
 
-<button onclick="verificarPin()">Entrar</button>
+<button onclick="login()">Entrar</button>
 
 <p id="error" style="color:red;"></p>
 
 </div>
 
-<div id="app">
+<div id="panel">
 
 <h1>💰 Control de Gastos</h1>
 
-<input id="nombre" placeholder="Concepto">
+<input id="nombre" placeholder="Nuevo gasto">
 <input id="monto" type="number" placeholder="Monto">
 
 <button onclick="agregar()">Agregar</button>
@@ -104,27 +104,29 @@ text-align:right;
 </table>
 
 <div class="total">
-Total: $<span id="total">0</span>
+
+Total pendiente: $<span id="total">0</span>
+
 </div>
 
 </div>
 
 <script>
 
-const PIN = "1389";
+const PIN="1389";
 
-let data = [];
+let gastos=[];
 
-function verificarPin(){
+function login(){
 
-const pin = document.getElementById("pin").value;
+let p=document.getElementById("pin").value;
 
-if(pin === PIN){
+if(p===PIN){
 
 document.getElementById("login").style.display="none";
-document.getElementById("app").style.display="block";
+document.getElementById("panel").style.display="block";
 
-cargar();
+cargarFirebase();
 
 }else{
 
@@ -136,20 +138,10 @@ document.getElementById("error").innerText="PIN incorrecto";
 
 function agregar(){
 
-const nombre = document.getElementById("nombre").value;
-const monto = parseFloat(document.getElementById("monto").value);
+let nombre=document.getElementById("nombre").value;
+let monto=parseFloat(document.getElementById("monto").value);
 
 if(!nombre || !monto) return;
-
-data.push({
-nombre:nombre,
-monto:monto,
-pagado:false
-});
-
-guardar();
-
-render();
 
 guardarEnFirebase(nombre,monto);
 
@@ -160,133 +152,122 @@ document.getElementById("monto").value="";
 
 function render(){
 
-const tabla = document.getElementById("tabla");
+let tabla=document.getElementById("tabla");
 
 tabla.innerHTML="";
 
 let total=0;
 
-data.forEach((item,i)=>{
+gastos.forEach((g,i)=>{
 
-if(!item.pagado) total += item.monto;
+if(!g.pagado) total+=g.monto;
 
-tabla.innerHTML += `
-<tr class="${item.pagado?'pagado':''}">
-<td>${item.nombre}</td>
-<td>$${item.monto}</td>
-<td>${item.pagado?'Pagado':'Pendiente'}</td>
+tabla.innerHTML+=`
+
+<tr class="${g.pagado?'pagado':''}">
+
+<td>${g.nombre}</td>
+
+<td>$${g.monto}</td>
+
+<td>${g.pagado?'Pagado':'Pendiente'}</td>
+
 <td>
 
-<button onclick="togglePago(${i})">✔</button>
+<button onclick="pagar('${g.id}',${g.pagado})">✔</button>
 
-<button onclick="eliminar(${i})">❌</button>
+<button onclick="eliminar('${g.id}')">❌</button>
 
 </td>
+
 </tr>
+
 `;
 
 });
 
-document.getElementById("total").innerText = total;
-
-}
-
-function togglePago(i){
-
-data[i].pagado = !data[i].pagado;
-
-guardar();
-
-render();
-
-}
-
-function eliminar(i){
-
-data.splice(i,1);
-
-guardar();
-
-render();
-
-}
-
-function guardar(){
-
-localStorage.setItem("finanzasCasa",JSON.stringify(data));
-
-}
-
-function cargar(){
-
-const d = localStorage.getItem("finanzasCasa");
-
-if(d){
-
-data = JSON.parse(d);
-
-render();
-
-}
+document.getElementById("total").innerText=total;
 
 }
 
 </script>
-
-<!-- FIREBASE -->
 
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+import { getFirestore,collection,addDoc,getDocs,deleteDoc,doc,updateDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
 
-apiKey: "AIzaSyBn-3HhN85uNP8tVS75L-g_uPjwaHeQ_w",
-
-authDomain: "presupuesto-hogar-745dc.firebaseapp.com",
-
-projectId: "presupuesto-hogar-745dc",
-
-storageBucket: "presupuesto-hogar-745dc.firebasestorage.app",
-
-messagingSenderId: "812918967836",
-
-appId: "1:812918967836:web:668c0673904a36288e19d9"
+apiKey:"TU_API_KEY",
+authDomain:"TU_DOMINIO.firebaseapp.com",
+projectId:"TU_PROYECTO",
+storageBucket:"TU_BUCKET",
+messagingSenderId:"XXXX",
+appId:"XXXX"
 
 };
 
-const app = initializeApp(firebaseConfig);
+const app=initializeApp(firebaseConfig);
 
-const db = getFirestore(app);
+const db=getFirestore(app);
 
-async function guardarEnFirebase(nombre,monto){
-
-try{
+window.guardarEnFirebase=async function(nombre,monto){
 
 await addDoc(collection(db,"gastos"),{
 
 nombre:nombre,
-
 monto:monto,
-
+pagado:false,
 fecha:new Date()
 
 });
 
-console.log("Guardado en Firebase");
-
-}catch(e){
-
-console.error("Error:",e);
+cargarFirebase();
 
 }
 
+window.cargarFirebase=async function(){
+
+gastos=[];
+
+const querySnapshot=await getDocs(collection(db,"gastos"));
+
+querySnapshot.forEach((docu)=>{
+
+gastos.push({
+id:docu.id,
+...docu.data()
+});
+
+});
+
+render();
+
 }
 
-window.guardarEnFirebase = guardarEnFirebase;
+window.eliminar=async function(id){
+
+await deleteDoc(doc(db,"gastos",id));
+
+cargarFirebase();
+
+}
+
+window.pagar=async function(id,estado){
+
+await updateDoc(doc(db,"gastos",id),{
+
+pagado:!estado
+
+});
+
+cargarFirebase();
+
+}
 
 </script>
 
 </body>
+
 </html>
