@@ -946,6 +946,9 @@ window.onload = cargarDatos;
 
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+const db = getFirestore(app);
   const analytics = getAnalytics(app);
 </script>
 </body>
