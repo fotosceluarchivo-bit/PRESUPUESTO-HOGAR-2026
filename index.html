@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Panel Financiero del Hogar</title>
-
 <style>
 body{font-family:Arial;padding:20px;max-width:1000px;margin:auto}
 .meses{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
@@ -15,16 +14,16 @@ body{font-family:Arial;padding:20px;max-width:1000px;margin:auto}
 .gasto{background:white;display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:10px;align-items:center;border:1px solid #ddd;padding:8px;border-radius:8px}
 .pagado{background:#fde047}
 .total{display:grid;grid-template-columns:1fr 1fr;margin-top:30px;font-size:20px;font-weight:bold}
+.guardar{margin-bottom:20px}
 .bloqueado{display:flex;align-items:center;justify-content:center;height:70vh;font-size:28px}
 </style>
-
 </head>
-
 <body>
-
 <h1 style="text-align:center">Panel Financiero del Hogar</h1>
 
+<div class="guardar">
 <button onclick="guardarManual()">💾 Guardar Cambios</button>
+</div>
 
 <div class="meses" id="meses"></div>
 
@@ -37,6 +36,11 @@ body{font-family:Arial;padding:20px;max-width:1000px;margin:auto}
 <div class="control-area">
 <button onclick="pagarTodo()">Pagar Todo</button>
 <button onclick="reiniciarMes()">Reiniciar Mes</button>
+<button onclick="ordenarMayor()">⬇ Mayor a menor</button>
+<button onclick="ordenarMenor()">⬆ Menor a mayor</button>
+<button onclick="verTodos()">Todos</button>
+<button onclick="verPendientes()">Pendientes</button>
+<button onclick="verPagados()">Pagados</button>
 </div>
 
 <div class="lista" id="lista"></div>
@@ -52,11 +56,17 @@ const PIN_CORRECTO="1389";
 let accesoPermitido=true;
 
 function verificarPIN(){
-let intento=prompt("Ingrese el PIN:");
+let intento=prompt("Ingrese el PIN para acceder al panel financiero:");
+
+if(intento===null){
+ accesoPermitido=false;
+ document.body.innerHTML="<div class='bloqueado'>🔒 Acceso cancelado</div>";
+ return false;
+}
 
 if(intento!==PIN_CORRECTO){
-alert("PIN incorrecto");
-return verificarPIN();
+ alert("PIN incorrecto");
+ return verificarPIN();
 }
 
 return true;
@@ -66,6 +76,7 @@ verificarPIN();
 
 const meses=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
+// Datos base EXACTOS (normalizados)
 const datosBase=[
 {id:1,nombre:"Alquiler",monto:1650,pagado:false,fechaPago:""},
 {id:2,nombre:"Terreno 3 Viñedos de Ocucaje",monto:589,pagado:false,fechaPago:""},
@@ -76,43 +87,63 @@ const datosBase=[
 {id:7,nombre:"Terreno 2 Reque",monto:325,pagado:false,fechaPago:""},
 {id:8,nombre:"Lucy",monto:200,pagado:false,fechaPago:""},
 {id:9,nombre:"Viaje de julio",monto:200,pagado:false,fechaPago:""},
-{id:10,nombre:"Terreno 1 San Vicente de Cañete",monto:196,pagado:false,fechaPago:""}
+{id:10,nombre:"Terreno 1 San Vicente de Cañete",monto:196,pagado:false,fechaPago:""},
+{id:11,nombre:"Restaurantes",monto:150,pagado:false,fechaPago:""},
+{id:12,nombre:"Seguro Lucy",monto:150,pagado:false,fechaPago:""},
+{id:13,nombre:"Mama de Eder",monto:150,pagado:false,fechaPago:""},
+{id:14,nombre:"Pasajes al colegio",monto:110,pagado:false,fechaPago:""},
+{id:15,nombre:"Electricidad",monto:100,pagado:false,fechaPago:""},
+{id:16,nombre:"Alimentacion diaria",monto:100,pagado:false,fechaPago:""},
+{id:17,nombre:"Vestuario",monto:100,pagado:false,fechaPago:""},
+{id:1772897138116,nombre:"Win internet",monto:100,pagado:false,fechaPago:""},
+{id:1772897153008,nombre:"Mama Lucy",monto:100,pagado:false,fechaPago:""},
+{id:1772897177181,nombre:"Eder celular",monto:40,pagado:false,fechaPago:""},
+{id:1772897196406,nombre:"Lucy celular",monto:30,pagado:false,fechaPago:""},
+{id:1772897210874,nombre:"Cochera",monto:280,pagado:false,fechaPago:""},
+{id:1772897239743,nombre:"Gas",monto:60,pagado:false,fechaPago:""},
+{id:1772897249054,nombre:"Agua",monto:60,pagado:false,fechaPago:""},
+{id:1772897292499,nombre:"Fiesta Celebracion",monto:50,pagado:false,fechaPago:""}
 ];
 
 function crearEstructura(){
-
 const obj={};
 
 meses.forEach(m=>{
-obj[m]=datosBase.map(g=>({...g}));
+obj[m]=datosBase.map(g=>({
+ id:g.id,
+ nombre:g.nombre,
+ monto:Number(g.monto)||0,
+ pagado:g.pagado||false,
+ fechaPago:g.fechaPago||""
+}));
 });
 
 return obj;
-
 }
 
-let data=JSON.parse(localStorage.getItem("finanzasCasa")) || crearEstructura();
+let data=JSON.parse(localStorage.getItem("finanzasCasa"));
 
+// Reparación automática si el almacenamiento viejo tenía otra estructura
+if(!data || Array.isArray(data)){
+ data=crearEstructura();
+ localStorage.setItem("finanzasCasa",JSON.stringify(data));
+}
 let mesActual="Enero";
+let orden="ninguno";
+let filtro="todos";
 
 function guardarManual(){
-
 localStorage.setItem("finanzasCasa",JSON.stringify(data));
-
-alert("Guardado");
-
+alert("Cambios guardados correctamente");
 }
 
 function renderMeses(){
-
 const cont=document.getElementById("meses");
-
 cont.innerHTML="";
 
 meses.forEach(m=>{
 
 const btn=document.createElement("button");
-
 btn.textContent=m;
 
 if(m===mesActual)btn.classList.add("activo");
@@ -125,76 +156,162 @@ render();
 cont.appendChild(btn);
 
 });
-
 }
 
 function agregar(){
 
-const nombre=document.getElementById("nombre").value;
-
+const nombre=document.getElementById("nombre").value.trim();
 const monto=parseFloat(document.getElementById("monto").value);
 
+if(!nombre||isNaN(monto))return;
+
 data[mesActual].push({
-
-id:Date.now(),
-nombre:nombre,
-monto:monto,
-pagado:false,
-fechaPago:""
-
+ id:Date.now(),
+ nombre,
+ monto:Number(monto),
+ pagado:false,
+ fechaPago:""
 });
 
+document.getElementById("nombre").value="";
+document.getElementById("monto").value="";
+
 guardarManual();
-
 render();
-
 }
 
 function togglePago(id){
 
-data[mesActual]=data[mesActual].map(g=>{
+ data[mesActual]=data[mesActual].map(g=>{
 
-if(g.id===id){
+ if(g.id===id){
 
-g.pagado=!g.pagado;
+  g.pagado=!g.pagado;
 
+  if(g.pagado){
+   g.fechaPago=new Date().toISOString().split('T')[0];
+  }else{
+   g.fechaPago="";
+  }
+
+ }
+
+ return g;
+
+ });
+
+ guardarManual();
+ render();
 }
 
-return g;
+function eliminar(id){
 
-});
+data[mesActual]=data[mesActual].filter(g=>g.id!==id);
 
 guardarManual();
-
 render();
-
 }
 
+function editar(id,campo,valor){
+
+ data[mesActual]=data[mesActual].map(g=>{
+
+ if(g.id!==id) return g;
+
+ if(campo==="monto"){
+  let n=parseFloat(valor);
+  if(isNaN(n)) n=0;
+  g.monto=n;
+ }else{
+  g[campo]=valor;
+ }
+
+ return g;
+
+ });
+
+ guardarManual();
+ render();
+}
+
+function pagarTodo(){
+
+ data[mesActual]=data[mesActual].map(g=>{
+ g.pagado=true;
+ g.fechaPago=new Date().toISOString().split('T')[0];
+ return g;
+ });
+
+ guardarManual();
+ render();
+}
+
+function reiniciarMes(){
+
+ data[mesActual]=data[mesActual].map(g=>{
+ g.pagado=false;
+ g.fechaPago="";
+ return g;
+ });
+
+ guardarManual();
+ render();
+}
+
+function ordenarMayor(){orden="mayor";render();}
+function ordenarMenor(){orden="menor";render();}
+
+function verTodos(){filtro="todos";render();}
+function verPendientes(){filtro="pendientes";render();}
+function verPagados(){filtro="pagados";render();}
+
 function render(){
+
+if(!accesoPermitido) return;
 
 renderMeses();
 
 const lista=document.getElementById("lista");
-
 lista.innerHTML="";
 
-data[mesActual].forEach(g=>{
+let gastos=[...data[mesActual]];
+
+if(filtro==="pendientes"){
+ gastos=gastos.filter(g=>!g.pagado);
+}
+
+if(filtro==="pagados"){
+ gastos=gastos.filter(g=>g.pagado);
+}
+
+if(orden==="mayor"){
+ gastos.sort((a,b)=>b.monto-a.monto);
+}
+
+if(orden==="menor"){
+ gastos.sort((a,b)=>a.monto-b.monto);
+}
+
+
+gastos.forEach(g=>{
 
 const div=document.createElement("div");
-
 div.className="gasto"+(g.pagado?" pagado":"");
+
 
 div.innerHTML=`
 
-<input value="${g.nombre}">
+<input value="${g.nombre}" onchange="editar(${g.id},'nombre',this.value)">
 
-<input type="number" value="${g.monto}">
+<input type="number" step="0.01" value="${g.monto}" onchange="editar(${g.id},'monto',this.value)">
 
 <button onclick="togglePago(${g.id})">
-
 ${g.pagado?"Pagado":"Pendiente"}
-
 </button>
+
+<input type="date" value="${g.fechaPago||""}" onchange="editar(${g.id},'fechaPago',this.value)">
+
+<button onclick="eliminar(${g.id})" style="background:#dc2626;color:white">Eliminar</button>
 
 `;
 
@@ -204,55 +321,21 @@ lista.appendChild(div);
 
 const totalPagado=data[mesActual]
 .filter(g=>g.pagado)
-.reduce((a,b)=>a+b.monto,0);
+.reduce((a,b)=>a+(Number(b.monto)||0),0);
 
 const totalPendiente=data[mesActual]
 .filter(g=>!g.pagado)
-.reduce((a,b)=>a+b.monto,0);
+.reduce((a,b)=>a+(Number(b.monto)||0),0);
 
-document.getElementById("pagado").innerText="Total Pagado S/ "+totalPagado;
 
-document.getElementById("pendiente").innerText="Total Pendiente S/ "+totalPendiente;
+document.getElementById("pagado").innerText="Total Pagado: S/ "+totalPagado.toFixed(2);
+
+document.getElementById("pendiente").innerText="Total Pendiente: S/ "+totalPendiente.toFixed(2);
 
 }
 
 render();
 
 </script>
-
-<!-- FIREBASE -->
-
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
-
-const firebaseConfig = {
-
-apiKey: "AIzaSyBRn-3Hn8u5nUP8tVS75l-q_uPiwaHgO_w",
-
-authDomain: "presupuesto-hogar-745dc.firebaseapp.com",
-
-projectId: "presupuesto-hogar-745dc",
-
-storageBucket: "presupuesto-hogar-745dc.firebasestorage.app",
-
-messagingSenderId: "812918967836",
-
-appId: "1:812918967836:web:668c0673904a36288e19d9",
-
-measurementId: "G-XD10FZRG1F"
-
-};
-
-const app = initializeApp(firebaseConfig);
-
-const db = getFirestore(app);
-
-console.log("Firebase conectado");
-
-</script>
-
 </body>
 </html>
